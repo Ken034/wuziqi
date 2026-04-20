@@ -328,29 +328,34 @@
   }
 
   function placePiece(x, y) {
-    if (gameOver || board[x][y] || aiThinking) return;
+    if (gameOver || board[x][y] !== 0 || aiThinking) return false;
+    
     board[x][y] = currentPlayer;
     lastMove = { x, y };
     drawBoard();
 
     if (checkWin(x, y, currentPlayer)) {
       endGame(currentPlayer);
-      return;
+      return true;
     }
-    if (isFull()) { endGame(0); return; }
+    if (isFull()) { endGame(0); return true; }
 
     currentPlayer = currentPlayer === 1 ? 2 : 1;
     document.getElementById('status').textContent = currentPlayer === 1 ? '黑方回合' : '白方回合';
 
+    // Trigger AI move if in AI mode and it's white's turn
     if (mode === 'ai' && currentPlayer === 2 && !gameOver) {
       aiThinking = true;
       document.getElementById('status').textContent = '🤖 AI思考中...';
       setTimeout(() => {
         const move = getBestMove();
-        placePiece(move.x, move.y);
+        if (move) {
+          placePiece(move.x, move.y);
+        }
         aiThinking = false;
-      }, 150);
+      }, 200);
     }
+    return true;
   }
 
   canvas.addEventListener('click', e => {
