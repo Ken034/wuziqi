@@ -1,155 +1,1396 @@
+$ cat > /workspace/index.html << 'HTMLEOF'
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Rotating Earth</title>
+    <title>3D Gomoku - Ultimate Challenge</title>
     <style>
-        body {
+        :root {
+            --bg-dark: #0a1f0a;
+            --bg-light: #0d0d0d;
+            --board-color: #1a2e1a;
+            --board-line: #4a6b4a;
+            --text-color: #e0e0e0;
+            --accent-color: #4caf50;
+            --white-piece: #f0f0f0;
+            --black-piece: #1a1a1a;
+        }
+        * {
             margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background: linear-gradient(135deg, var(--bg-dark), var(--bg-light));
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+        }
+        header {
+            text-align: center;
+            padding: 2rem;
+            width: 100%;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(45deg, #4caf50, #8bc34a);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .subtitle {
+            color: #aaa;
+            font-size: 1.1rem;
+        }
+        .game-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+            max-width: 1400px;
+            width: 100%;
+            padding: 1rem;
+            justify-content: center;
+        }
+        .board-container {
+            position: relative;
+            width: 600px;
+            height: 600px;
+            background: var(--board-color);
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             overflow: hidden;
-            background-color: #000;
-            font-family: sans-serif;
         }
-        canvas {
-            display: block;
+        #game-board {
+            width: 100%;
+            height: 100%;
         }
-        #loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            min-width: 300px;
+        }
+        .mode-selector {
+            background: rgba(30, 50, 30, 0.7);
+            padding: 1.5rem;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+        }
+        .mode-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        button {
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(45deg, #2e7d32, #4caf50);
             color: white;
-            font-size: 1.2rem;
-            pointer-events: none;
-            transition: opacity 0.5s ease;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex: 1;
         }
-        .info {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            color: rgba(255, 255, 255, 0.7);
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+        }
+        button.active {
+            background: linear-gradient(45deg, #1b5e20, #2e7d32);
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.3);
+        }
+        .stats-panel {
+            background: rgba(30, 50, 30, 0.7);
+            padding: 1.5rem;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .stat-item {
+            background: rgba(0,0,0,0.3);
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+        .stat-label {
             font-size: 0.9rem;
-            pointer-events: none;
+            color: #aaa;
+            margin-top: 0.5rem;
+        }
+        .history-panel {
+            background: rgba(30, 50, 30, 0.7);
+            padding: 1.5rem;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .history-list {
+            list-style: none;
+            margin-top: 1rem;
+        }
+        .history-item {
+            padding: 0.8rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: space-between;
+        }
+        .history-item:last-child {
+            border-bottom: none;
+        }
+        .turn-indicator {
+            background: rgba(30, 50, 30, 0.7);
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 1rem;
+        }
+        .online-room {
+            background: rgba(30, 50, 30, 0.7);
+            padding: 1.5rem;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            display: none;
+        }
+        .room-inputs {
+            display: flex;
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+        input {
+            flex: 1;
+            padding: 0.8rem;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            background: rgba(0,0,0,0.3);
+            color: white;
+        }
+        .difficulty-selector {
+            margin-top: 1rem;
+        }
+        select {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            background: rgba(0,0,0,0.3);
+            color: white;
+            margin-top: 0.5rem;
+        }
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(45deg, #2e7d32, #4caf50);
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            transform: translateX(200%);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+        .notification.show {
+            transform: translateX(0);
+        }
+        @media (max-width: 900px) {
+            .game-container {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .board-container {
+                width: 90vw;
+                height: 90vw;
+                max-width: 600px;
+                max-height: 600px;
+            }
+            
+            .controls {
+                width: 90vw;
+                max-width: 600px;
+            }
         }
     </style>
 </head>
 <body>
-    <div id="loading">Loading Earth textures...</div>
-    <div class="info">Drag to rotate • Scroll to zoom</div>
-    
-    <!-- Import Three.js as an ES module -->
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    <header>
+        <h1>3D GOMOKU</h1>
+        <p class="subtitle">Ultimate Challenge - Connect Five to Win</p>
+    </header>
+    <div class="game-container">
+        <div class="board-container">
+            <canvas id="game-board"></canvas>
+        </div>
+        <div class="controls">
+            <div class="turn-indicator" id="turn-indicator">
+                Black's Turn
+            </div>
+            <div class="mode-selector">
+                <h3>Game Mode</h3>
+                <div class="mode-buttons">
+                    <button id="ai-mode-btn" class="active">vs AI</button>
+                    <button id="pvp-mode-btn">Online PvP</button>
+                </div>
+                
+                <div class="difficulty-selector" id="difficulty-section">
+                    <label for="difficulty">AI Difficulty:</label>
+                    <select id="difficulty">
+                        <option value="easy">Easy</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="hard">Hard</option>
+                        <option value="expert">Expert (Adaptive)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="online-room" id="online-room">
+                <h3>Online Room</h3>
+                <div class="room-inputs">
+                    <input type="text" id="room-id" placeholder="Room ID">
+                    <button id="join-room-btn">Join</button>
+                </div>
+                <button id="create-room-btn">Create Room</button>
+                <p id="room-status" style="margin-top: 1rem; color: #aaa;"></p>
+            </div>
+            <div class="stats-panel">
+                <h3>Your Statistics</h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="wins">0</div>
+                        <div class="stat-label">Wins</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="losses">0</div>
+                        <div class="stat-label">Losses</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="draws">0</div>
+                        <div class="stat-label">Draws</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="win-rate">0%</div>
+                        <div class="stat-label">Win Rate</div>
+                    </div>
+                </div>
+            </div>
+            <div class="history-panel">
+                <h3>Match History</h3>
+                <ul class="history-list" id="history-list">
+                </ul>
+            </div>
+            <button id="reset-game-btn">Reset Game</button>
+        </div>
+    </div>
+    <div class="notification" id="notification"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const BOARD_SIZE = 15;
+        let board = [];
+        let currentPlayer = 1;
+        let gameActive = true;
+        let gameMode = 'ai';
+        let aiDifficulty = 'medium';
+        let playerStats = { wins: 0, losses: 0, draws: 0, history: [] };
+        let aiLearning = { winPatterns: [], lossPatterns: [], adaptationLevel: 0 };
+        let scene, camera, renderer, pieces = [], raycaster, mouse, hoveredCell = null;
+        function init() {
+            loadStats();
+            initBoard();
+            initThreeJS();
+            setupEventListeners();
+            updateStatsDisplay();
+            renderHistory();
+            animate();
+        }
+        function initBoard() {
+            board = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(0));
+            pieces.forEach(piece => scene.remove(piece));
+            pieces = [];
+            currentPlayer = 1;
+            gameActive = true;
+            updateTurnIndicator();
+        }
+        function initThreeJS() {
+            const canvas = document.getElementById('game-board');
+            const container = canvas.parentElement;
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a2e1a);
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(0, 12, 12);
+            camera.lookAt(0, 0, 0);
+            renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.shadowMap.enabled = true;
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 5);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+            createBoard();
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+            window.addEventListener('resize', () => {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+            canvas.addEventListener('mousemove', onMouseMove);
+            canvas.addEventListener('click', onClick);
+        }
+        function createBoard() {
+            const boardGeometry = new THREE.PlaneGeometry(14, 14);
+            const boardMaterial = new THREE.MeshStandardMaterial({ color: 0x1a2e1a, roughness: 0.8, metalness: 0.2 });
+            const boardBase = new THREE.Mesh(boardGeometry, boardMaterial);
+            boardBase.rotation.x = -Math.PI / 2;
+            boardBase.receiveShadow = true;
+            scene.add(boardBase);
+            const lineMaterial = new THREE.LineBasicMaterial({ color: 0x4a6b4a });
+            for (let i = 0; i < BOARD_SIZE; i++) {
+                const pointsV = [new THREE.Vector3(-7 + i, 0.01, -7), new THREE.Vector3(-7 + i, 0.01, 7)];
+                scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pointsV), lineMaterial));
+                const pointsH = [new THREE.Vector3(-7, 0.01, -7 + i), new THREE.Vector3(7, 0.01, -7 + i)];
+                scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pointsH), lineMaterial));
+            }
+            const starPoints = [[3, 3], [3, 11], [11, 3], [11, 11], [7, 7]];
+            const starGeometry = new THREE.SphereGeometry(0.15, 16, 16);
+            const starMaterial = new THREE.MeshStandardMaterial({ color: 0x4a6b4a, roughness: 0.5, metalness: 0.8 });
+            starPoints.forEach(([x, z]) => {
+                const star = new THREE.Mesh(starGeometry, starMaterial);
+                star.position.set(-7 + x, 0.02, -7 + z);
+                scene.add(star);
+            });
+        }
+        function createPiece(x, z, player) {
+            const geometry = new THREE.SphereGeometry(0.4, 32, 32);
+            const material = new THREE.MeshPhysicalMaterial({
+                color: player === 1 ? 0x1a1a1a : 0xf0f0f0,
+                metalness: 0.9, roughness: 0.1, clearcoat: 1.0, clearcoatRoughness: 0.1,
+                emissive: player === 1 ? 0x000000 : 0x222222, emissiveIntensity: 0.2
+            });
+            const piece = new THREE.Mesh(geometry, material);
+            piece.position.set(-7 + x, 0.5, -7 + z);
+            piece.castShadow = true;
+            piece.userData = { targetY: 0.5, currentY: 2, isAnimating: true };
+            scene.add(piece);
+            pieces.push(piece);
+        }
+        function onMouseMove(event) {
+            if (!gameActive) return;
+            const canvas = document.getElementById('game-board');
+            const rect = canvas.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+            const target = new THREE.Vector3();
+            if (raycaster.ray.intersectPlane(plane, target)) {
+                const x = Math.floor(target.x + 7.5);
+                const z = Math.floor(target.z + 7.5);
+                hoveredCell = (x >= 0 && x < BOARD_SIZE && z >= 0 && z < BOARD_SIZE) ? { x, z } : null;
+            } else {
+                hoveredCell = null;
             }
         }
-    </script>
-
-    <script type="module">
-        import * as THREE from 'three';
-        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-
-        // Scene setup
-        const scene = new THREE.Scene();
-        
-        // Camera setup
-        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.z = 15;
-
-        // Renderer setup
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        document.body.appendChild(renderer.domElement);
-
-        // Controls
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-        controls.minDistance = 6;
-        controls.maxDistance = 50;
-
-        // Texture Loader
-        const textureLoader = new THREE.TextureLoader();
-        const loadingElem = document.getElementById('loading');
-        
-        // Use high-quality textures from a reliable CDN
-        const earthMap = 'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg';
-        const earthBump = 'https://unpkg.com/three-globe/example/img/earth-topology.png';
-        
-        // Create Earth
-        const geometry = new THREE.SphereGeometry(5, 64, 64);
-        const material = new THREE.MeshPhongMaterial({
-            map: textureLoader.load(earthMap, () => {
-                loadingElem.style.opacity = 0;
-            }),
-            bumpMap: textureLoader.load(earthBump),
-            bumpScale: 0.15,
-            specular: new THREE.Color('grey'),
-            shininess: 10
-        });
-        const earth = new THREE.Mesh(geometry, material);
-        scene.add(earth);
-
-        // Create Atmosphere (Glow effect)
-        const atmosphereGeometry = new THREE.SphereGeometry(5.1, 64, 64);
-        const atmosphereMaterial = new THREE.MeshPhongMaterial({
-            color: 0x00aaff,
-            transparent: true,
-            opacity: 0.2,
-            side: THREE.BackSide,
-            blending: THREE.AdditiveBlending
-        });
-        const atmosphere = new THREE.Mesh(atmosphereGeometry, atmosphereMaterial);
-        scene.add(atmosphere);
-
-        // Create Stars
-        const starGeometry = new THREE.BufferGeometry();
-        const starCount = 3000;
-        const starPositions = new Float32Array(starCount * 3);
-        
-        for(let i = 0; i < starCount * 3; i++) {
-            starPositions[i] = (Math.random() - 0.5) * 600;
+        function onClick(event) {
+            if (!gameActive || !hoveredCell) return;
+            const { x, z } = hoveredCell;
+            if (board[z][x] !== 0) return;
+            placePiece(x, z, currentPlayer);
+            if (checkWin(x, z, currentPlayer)) { endGame(currentPlayer); return; }
+            if (checkDraw()) { endGame(0); return; }
+            currentPlayer = currentPlayer === 1 ? 2 : 1;
+            updateTurnIndicator();
+            if (gameMode === 'ai' && currentPlayer === 2 && gameActive) setTimeout(makeAIMove, 500);
         }
-        
-        starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
-        const starMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.5, transparent: true, opacity: 0.8 });
-        const stars = new THREE.Points(starGeometry, starMaterial);
-        scene.add(stars);
-
-        // Lighting
-        const ambientLight = new THREE.AmbientLight(0x333333);
-        scene.add(ambientLight);
-
-        const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
-        sunLight.position.set(10, 5, 10);
-        scene.add(sunLight);
-
-        // Handle Window Resize
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        // Animation Loop
+        function placePiece(x, z, player) { board[z][x] = player; createPiece(x, z, player); }
+        function checkWin(x, z, player) {
+            const directions = [[1, 0], [0, 1], [1, 1], [1, -1]];
+            for (const [dx, dz] of directions) {
+                let count = 1;
+                for (let i = 1; i < 5; i++) {
+                    const nx = x + dx * i, nz = z + dz * i;
+                    if (nx < 0 || nx >= BOARD_SIZE || nz < 0 || nz >= BOARD_SIZE || board[nz][nx] !== player) break;
+                    count++;
+                }
+                for (let i = 1; i < 5; i++) {
+                    const nx = x - dx * i, nz = z - dz * i;
+                    if (nx < 0 || nx >= BOARD_SIZE || nz < 0 || nz >= BOARD_SIZE || board[nz][nx] !== player) break;
+                    count++;
+                }
+                if (count >= 5) return true;
+            }
+            return false;
+        }
+        function checkDraw() {
+            for (let z = 0; z < BOARD_SIZE; z++)
+                for (let x = 0; x < BOARD_SIZE; x++)
+                    if (board[z][x] === 0) return false;
+            return true;
+        }
+        function makeAIMove() {
+            if (!gameActive) return;
+            let move = aiDifficulty === 'easy' ? getEasyMove() :
+                       aiDifficulty === 'medium' ? getMediumMove() :
+                       aiDifficulty === 'hard' ? getHardMove() : getExpertMove();
+            if (move) {
+                placePiece(move.x, move.z, 2);
+                if (checkWin(move.x, move.z, 2)) { endGame(2); return; }
+                if (checkDraw()) { endGame(0); return; }
+                currentPlayer = 1;
+                updateTurnIndicator();
+            }
+        }
+        function getEasyMove() {
+            const available = [];
+            for (let z = 0; z < BOARD_SIZE; z++)
+                for (let x = 0; x < BOARD_SIZE; x++)
+                    if (board[z][x] === 0) available.push({ x, z });
+            return available.length ? available[Math.floor(Math.random() * available.length)] : null;
+        }
+        function getMediumMove() {
+            const winMove = findBestMove(2, 4);
+            if (winMove) return winMove;
+            const blockMove = findBestMove(1, 4);
+            if (blockMove) return blockMove;
+            const center = Math.floor(BOARD_SIZE / 2);
+            if (board[center][center] === 0) return { x: center, z: center };
+            return getEasyMove();
+        }
+        function getHardMove() {
+            let bestScore = -Infinity, bestMove = null;
+            for (let z = 0; z < BOARD_SIZE; z++)
+                for (let x = 0; x < BOARD_SIZE; x++)
+                    if (board[z][x] === 0) {
+                        const score = evaluatePosition(x, z, 2);
+                        if (score > bestScore) { bestScore = score; bestMove = { x, z }; }
+                    }
+            return bestMove || getEasyMove();
+        }
+        function getExpertMove() {
+            let bestScore = -Infinity, bestMove = null;
+            for (let z = 0; z < BOARD_SIZE; z++)
+                for (let x = 0; x < BOARD_SIZE; x++)
+                    if (board[z][x] === 0) {
+                        let score = evaluatePosition(x, z, 2) + getLearningBonus(x, z, 2) * aiLearning.adaptationLevel;
+                        if (score > bestScore) { bestScore = score; bestMove = { x, z }; }
+                    }
+            return bestMove || getEasyMove();
+        }
+        function findBestMove(player, consecutive) {
+            const directions = [[1, 0], [0, 1], [1, 1], [1, -1]];
+            for (let z = 0; z < BOARD_SIZE; z++)
+                for (let x = 0; x < BOARD_SIZE; x++)
+                    if (board[z][x] === 0)
+                        for (const [dx, dz] of directions) {
+                            let count = 0, emptyEnds = 0;
+                            for (let i = 1; i <= 5; i++) {
+                                const nx = x + dx * i, nz = z + dz * i;
+                                if (nx < 0 || nx >= BOARD_SIZE || nz < 0 || nz >= BOARD_SIZE) break;
+                                if (board[nz][nx] === player) count++;
+                                else if (board[nz][nx] === 0) { emptyEnds++; break; }
+                                else break;
+                            }
+                            for (let i = 1; i <= 5; i++) {
+                                const nx = x - dx * i, nz = z - dz * i;
+                                if (nx < 0 || nx >= BOARD_SIZE || nz < 0 || nz >= BOARD_SIZE) break;
+                                if (board[nz][nx] === player) count++;
+                                else if (board[nz][nx] === 0) { emptyEnds++; break; }
+                                else break;
+                            }
+                            if (count >= consecutive && emptyEnds >= 1) return { x, z };
+                        }
+            return null;
+        }
+        function evaluatePosition(x, z, player) {
+            let score = 0;
+            const opponent = player === 1 ? 2 : 1;
+            [[1, 0], [0, 1], [1, 1], [1, -1]].forEach(([dx, dz]) => {
+                score += evaluateLine(x, z, dx, dz, player) + evaluateLine(x, z, dx, dz, opponent) * 0.8;
+            });
+            const center = BOARD_SIZE / 2;
+            score += (10 - Math.abs(x - center) - Math.abs(z - center)) * 0.5;
+            return score;
+        }
+        function evaluateLine(x, z, dx, dz, player) {
+            let count = 0, blocked = 0;
+            for (let i = 1; i <= 4; i++) {
+                const nx = x + dx * i, nz = z + dz * i;
+                if (nx < 0 || nx >= BOARD_SIZE || nz < 0 || nz >= BOARD_SIZE) { blocked++; break; }
+                if (board[nz][nx] === player) count++;
+                else if (board[nz][nx] !== 0) { blocked++; break; }
+                else break;
+            }
+            for (let i = 1; i <= 4; i++) {
+                const nx = x - dx * i, nz = z - dz * i;
+                if (nx < 0 || nx >= BOARD_SIZE || nz < 0 || nz >= BOARD_SIZE) { blocked++; break; }
+                if (board[nz][nx] === player) count++;
+                else if (board[nz][nx] !== 0) { blocked++; break; }
+                else break;
+            }
+            if (count >= 4) return 10000;
+            if (count === 3 && blocked === 0) return 1000;
+            if (count === 3 && blocked === 1) return 100;
+            if (count === 2 && blocked === 0) return 100;
+            if (count === 2 && blocked === 1) return 10;
+            if (count === 1 && blocked === 0) return 10;
+            return count;
+        }
+        function getLearningBonus(x, z, player) {
+            let bonus = 0;
+            aiLearning.winPatterns.forEach(pattern => { if (matchesPattern(x, z, pattern)) bonus += 50; });
+            aiLearning.lossPatterns.forEach(pattern => { if (matchesPattern(x, z, pattern)) bonus -= 30; });
+            return bonus;
+        }
+        function matchesPattern(x, z, pattern) {
+            return pattern.some(p => Math.abs(x - p.x) <= 2 && Math.abs(z - p.z) <= 2);
+        }
+        function endGame(winner) {
+            gameActive = false;
+            let message = winner === 1 ? '🎉 Black Wins!' : winner === 2 ? '🏆 White Wins!' : "🤝 It's a Draw!";
+            if (gameMode === 'ai') {
+                if (winner === 1) { playerStats.wins++; recordPattern(1); }
+                else if (winner === 2) { playerStats.losses++; recordPattern(2); }
+                else playerStats.draws++;
+            }
+            showNotification(message);
+            updateStatsDisplay();
+            saveStats();
+            addToHistory(winner);
+        }
+        function recordPattern(winner) {
+            const pattern = [];
+            for (let z = 0; z < BOARD_SIZE; z++)
+                for (let x = 0; x < BOARD_SIZE; x++)
+                    if (board[z][x] !== 0) pattern.push({ x, z, player: board[z][x] });
+            if (winner === 2) {
+                aiLearning.winPatterns.push(pattern);
+                aiLearning.adaptationLevel = Math.min(aiLearning.adaptationLevel + 0.1, 1.0);
+            } else aiLearning.lossPatterns.push(pattern);
+            if (aiLearning.winPatterns.length > 50) aiLearning.winPatterns.shift();
+            if (aiLearning.lossPatterns.length > 50) aiLearning.lossPatterns.shift();
+        }
+        function updateTurnIndicator() {
+            const indicator = document.getElementById('turn-indicator');
+            indicator.textContent = currentPlayer === 1 ? "Black's Turn" : "White's Turn";
+            indicator.style.color = currentPlayer === 1 ? '#1a1a1a' : '#f0f0f0';
+        }
+        function updateStatsDisplay() {
+            const total = playerStats.wins + playerStats.losses + playerStats.draws;
+            const winRate = total > 0 ? Math.round((playerStats.wins / total) * 100) : 0;
+            document.getElementById('wins').textContent = playerStats.wins;
+            document.getElementById('losses').textContent = playerStats.losses;
+            document.getElementById('draws').textContent = playerStats.draws;
+            document.getElementById('win-rate').textContent = `${winRate}%`;
+        }
+        function addToHistory(winner) {
+            const result = winner === 1 ? 'Win' : winner === 2 ? 'Loss' : 'Draw';
+            playerStats.history.unshift({ result, timestamp: new Date().toLocaleString(), mode: gameMode, difficulty: aiDifficulty });
+            if (playerStats.history.length > 20) playerStats.history.pop();
+            renderHistory();
+        }
+        function renderHistory() {
+            const historyList = document.getElementById('history-list');
+            historyList.innerHTML = '';
+            playerStats.history.forEach(game => {
+                const li = document.createElement('li');
+                li.className = 'history-item';
+                li.innerHTML = `<span>${game.result} (${game.mode === 'ai' ? `vs ${game.difficulty}` : 'PvP'})</span><span style="color: #aaa; font-size: 0.8rem;">${game.timestamp}</span>`;
+                historyList.appendChild(li);
+            });
+        }
+        function loadStats() {
+            const saved = localStorage.getItem('gomokuStats');
+            if (saved) playerStats = JSON.parse(saved);
+            const savedLearning = localStorage.getItem('gomokuAILearning');
+            if (savedLearning) aiLearning = JSON.parse(savedLearning);
+        }
+        function saveStats() {
+            localStorage.setItem('gomokuStats', JSON.stringify(playerStats));
+            localStorage.setItem('gomokuAILearning', JSON.stringify(aiLearning));
+        }
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.classList.add('show');
+            setTimeout(() => notification.classList.remove('show'), 3000);
+        }
+        function setupEventListeners() {
+            document.getElementById('ai-mode-btn').addEventListener('click', () => {
+                gameMode = 'ai';
+                document.getElementById('ai-mode-btn').classList.add('active');
+                document.getElementById('pvp-mode-btn').classList.remove('active');
+                document.getElementById('difficulty-section').style.display = 'block';
+                document.getElementById('online-room').style.display = 'none';
+                initBoard();
+                showNotification('Switched to vs AI mode');
+            });
+            document.getElementById('pvp-mode-btn').addEventListener('click', () => {
+                gameMode = 'pvp';
+                document.getElementById('pvp-mode-btn').classList.add('active');
+                document.getElementById('ai-mode-btn').classList.remove('active');
+                document.getElementById('difficulty-section').style.display = 'none';
+                document.getElementById('online-room').style.display = 'block';
+                initBoard();
+                showNotification('Switched to Online PvP mode');
+            });
+            document.getElementById('difficulty').addEventListener('change', (e) => {
+                aiDifficulty = e.target.value;
+                showNotification(`AI difficulty set to ${aiDifficulty}`);
+            });
+            document.getElementById('reset-game-btn').addEventListener('click', () => {
+                initBoard();
+                showNotification('Game reset');
+            });
+            document.getElementById('create-room-btn').addEventListener('click', () => {
+                const roomId = 'ROOM-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+                document.getElementById('room-id').value = roomId;
+                document.getElementById('room-status').textContent = `Room created: ${roomId}. Share this ID with your friend.`;
+                showNotification('Room created! Share the ID with your friend.');
+            });
+            document.getElementById('join-room-btn').addEventListener('click', () => {
+                const roomId = document.getElementById('room-id').value.trim();
+                if (roomId) {
+                    document.getElementById('room-status').textContent = `Joined room: ${roomId}. Waiting for opponent...`;
+                    showNotification(`Joined room: ${roomId}`);
+                } else showNotification('Please enter a room ID');
+            });
+        }
         function animate() {
             requestAnimationFrame(animate);
-
-            // Rotate Earth
-            earth.rotation.y += 0.0015;
-            
-            // Slowly rotate stars for dynamic effect
-            stars.rotation.y -= 0.0002;
-
-            controls.update();
+            pieces.forEach(piece => {
+                if (piece.userData.isAnimating) {
+                    piece.userData.currentY = THREE.MathUtils.lerp(piece.userData.currentY, piece.userData.targetY, 0.1);
+                    piece.position.y = piece.userData.currentY;
+                    if (Math.abs(piece.userData.currentY - piece.userData.targetY) < 0.01) {
+                        piece.userData.isAnimating = false;
+                        piece.position.y = piece.userData.targetY;
+                    }
+                }
+            });
+            camera.position.x = Math.sin(Date.now() * 0.0005) * 0.5;
+            camera.lookAt(0, 0, 0);
             renderer.render(scene, camera);
         }
-
-        animate();
+        init();
     </script>
 </body>
 </html>
+HTMLEOF
+cat > /workspace/index.html << 'HTMLEOF'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Gomoku - Ultimate Challenge</title>
+    <style>
+        :root {
+            --bg-dark: #0a1f0a;
+            --bg-light: #0d0d0d;
+            --board-color: #1a2e1a;
+            --board-line: #4a6b4a;
+            --text-color: #e0e0e0;
+            --accent-color: #4caf50;
+            --white-piece: #f0f0f0;
+            --black-piece: #1a1a1a;
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background: linear-gradient(135deg, var(--bg-dark), var(--bg-light));
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+        }
+        header {
+            text-align: center;
+            padding: 2rem;
+            width: 100%;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(45deg, #4caf50, #8bc34a);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .subtitle {
+            color: #aaa;
+            font-size: 1.1rem;
+        }
+        .game-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2rem;
+            max-width: 1400px;
+            width: 100%;
+            padding: 1rem;
+            justify-content: center;
+        }
+        .board-container {
+            position: relative;
+            width: 600px;
+            height: 600px;
+            background: var(--board-color);
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+        #game-board {
+            width: 100%;
+            height: 100%;
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            min-width: 300px;
+        }
+        .mode-selector {
+            background: rgba(30, 50, 30, 0.7);
+            padding: 1.5rem;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+        }
+        .mode-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        button {
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(45deg, #2e7d32, #4caf50);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex: 1;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+        }
+        button.active {
+            background: linear-gradient(45deg, #1b5e20, #2e7d32);
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.3);
+        }
+        .stats-panel {
+            background: rgba(30, 50, 30, 0.7);
+            padding: 1.5rem;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .stat-item {
+            background: rgba(0,0,0,0.3);
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+        .stat-label {
+            font-size: 0.9rem;
+            color: #aaa;
+            margin-top: 0.5rem;
+        }
+        .history-panel {
+            background: rgba(30, 50, 30, 0.7);
+            padding: 1.5rem;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .history-list {
+            list-style: none;
+            margin-top: 1rem;
+        }
+        .history-item {
+            padding: 0.8rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: space-between;
+        }
+        .history-item:last-child {
+            border-bottom: none;
+        }
+        .turn-indicator {
+            background: rgba(30, 50, 30, 0.7);
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 1rem;
+        }
+        .online-room {
+            background: rgba(30, 50, 30, 0.7);
+            padding: 1.5rem;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            display: none;
+        }
+        .room-inputs {
+            display: flex;
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+        input {
+            flex: 1;
+            padding: 0.8rem;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            background: rgba(0,0,0,0.3);
+            color: white;
+        }
+        .difficulty-selector {
+            margin-top: 1rem;
+        }
+        select {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            background: rgba(0,0,0,0.3);
+            color: white;
+            margin-top: 0.5rem;
+        }
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(45deg, #2e7d32, #4caf50);
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            transform: translateX(200%);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+        .notification.show {
+            transform: translateX(0);
+        }
+        @media (max-width: 900px) {
+            .game-container {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .board-container {
+                width: 90vw;
+                height: 90vw;
+                max-width: 600px;
+                max-height: 600px;
+            }
+            
+            .controls {
+                width: 90vw;
+                max-width: 600px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>3D GOMOKU</h1>
+        <p class="subtitle">Ultimate Challenge - Connect Five to Win</p>
+    </header>
+    <div class="game-container">
+        <div class="board-container">
+            <canvas id="game-board"></canvas>
+        </div>
+        <div class="controls">
+            <div class="turn-indicator" id="turn-indicator">
+                Black's Turn
+            </div>
+            <div class="mode-selector">
+                <h3>Game Mode</h3>
+                <div class="mode-buttons">
+                    <button id="ai-mode-btn" class="active">vs AI</button>
+                    <button id="pvp-mode-btn">Online PvP</button>
+                </div>
+                
+                <div class="difficulty-selector" id="difficulty-section">
+                    <label for="difficulty">AI Difficulty:</label>
+                    <select id="difficulty">
+                        <option value="easy">Easy</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="hard">Hard</option>
+                        <option value="expert">Expert (Adaptive)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="online-room" id="online-room">
+                <h3>Online Room</h3>
+                <div class="room-inputs">
+                    <input type="text" id="room-id" placeholder="Room ID">
+                    <button id="join-room-btn">Join</button>
+                </div>
+                <button id="create-room-btn">Create Room</button>
+                <p id="room-status" style="margin-top: 1rem; color: #aaa;"></p>
+            </div>
+            <div class="stats-panel">
+                <h3>Your Statistics</h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-value" id="wins">0</div>
+                        <div class="stat-label">Wins</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="losses">0</div>
+                        <div class="stat-label">Losses</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="draws">0</div>
+                        <div class="stat-label">Draws</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="win-rate">0%</div>
+                        <div class="stat-label">Win Rate</div>
+                    </div>
+                </div>
+            </div>
+            <div class="history-panel">
+                <h3>Match History</h3>
+                <ul class="history-list" id="history-list">
+                </ul>
+            </div>
+            <button id="reset-game-btn">Reset Game</button>
+        </div>
+    </div>
+    <div class="notification" id="notification"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const BOARD_SIZE = 15;
+        let board = [];
+        let currentPlayer = 1;
+        let gameActive = true;
+        let gameMode = 'ai';
+        let aiDifficulty = 'medium';
+        let playerStats = { wins: 0, losses: 0, draws: 0, history: [] };
+        let aiLearning = { winPatterns: [], lossPatterns: [], adaptationLevel: 0 };
+        let scene, camera, renderer, pieces = [], raycaster, mouse, hoveredCell = null;
+        function init() {
+            loadStats();
+            initBoard();
+            initThreeJS();
+            setupEventListeners();
+            updateStatsDisplay();
+            renderHistory();
+            animate();
+        }
+        function initBoard() {
+            board = Array(BOARD_SIZE).fill().map(() => Array(BOARD_SIZE).fill(0));
+            pieces.forEach(piece => scene.remove(piece));
+            pieces = [];
+            currentPlayer = 1;
+            gameActive = true;
+            updateTurnIndicator();
+        }
+        function initThreeJS() {
+            const canvas = document.getElementById('game-board');
+            const container = canvas.parentElement;
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a2e1a);
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(0, 12, 12);
+            camera.lookAt(0, 0, 0);
+            renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.shadowMap.enabled = true;
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 5);
+            directionalLight.castShadow = true;
+            scene.add(directionalLight);
+            createBoard();
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+            window.addEventListener('resize', () => {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            });
+            canvas.addEventListener('mousemove', onMouseMove);
+            canvas.addEventListener('click', onClick);
+        }
+        function createBoard() {
+            const boardGeometry = new THREE.PlaneGeometry(14, 14);
+            const boardMaterial = new THREE.MeshStandardMaterial({ color: 0x1a2e1a, roughness: 0.8, metalness: 0.2 });
+            const boardBase = new THREE.Mesh(boardGeometry, boardMaterial);
+            boardBase.rotation.x = -Math.PI / 2;
+            boardBase.receiveShadow = true;
+            scene.add(boardBase);
+            const lineMaterial = new THREE.LineBasicMaterial({ color: 0x4a6b4a });
+            for (let i = 0; i < BOARD_SIZE; i++) {
+                const pointsV = [new THREE.Vector3(-7 + i, 0.01, -7), new THREE.Vector3(-7 + i, 0.01, 7)];
+                scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pointsV), lineMaterial));
+                const pointsH = [new THREE.Vector3(-7, 0.01, -7 + i), new THREE.Vector3(7, 0.01, -7 + i)];
+                scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pointsH), lineMaterial));
+            }
+            const starPoints = [[3, 3], [3, 11], [11, 3], [11, 11], [7, 7]];
+            const starGeometry = new THREE.SphereGeometry(0.15, 16, 16);
+            const starMaterial = new THREE.MeshStandardMaterial({ color: 0x4a6b4a, roughness: 0.5, metalness: 0.8 });
+            starPoints.forEach(([x, z]) => {
+                const star = new THREE.Mesh(starGeometry, starMaterial);
+                star.position.set(-7 + x, 0.02, -7 + z);
+                scene.add(star);
+            });
+        }
+        function createPiece(x, z, player) {
+            const geometry = new THREE.SphereGeometry(0.4, 32, 32);
+            const material = new THREE.MeshPhysicalMaterial({
+                color: player === 1 ? 0x1a1a1a : 0xf0f0f0,
+                metalness: 0.9, roughness: 0.1, clearcoat: 1.0, clearcoatRoughness: 0.1,
+                emissive: player === 1 ? 0x000000 : 0x222222, emissiveIntensity: 0.2
+            });
+            const piece = new THREE.Mesh(geometry, material);
+            piece.position.set(-7 + x, 0.5, -7 + z);
+            piece.castShadow = true;
+            piece.userData = { targetY: 0.5, currentY: 2, isAnimating: true };
+            scene.add(piece);
+            pieces.push(piece);
+        }
+        function onMouseMove(event) {
+            if (!gameActive) return;
+            const canvas = document.getElementById('game-board');
+            const rect = canvas.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+            const target = new THREE.Vector3();
+            if (raycaster.ray.intersectPlane(plane, target)) {
+                const x = Math.floor(target.x + 7.5);
+                const z = Math.floor(target.z + 7.5);
+                hoveredCell = (x >= 0 && x < BOARD_SIZE && z >= 0 && z < BOARD_SIZE) ? { x, z } : null;
+            } else {
+                hoveredCell = null;
+            }
+        }
+        function onClick(event) {
+            if (!gameActive || !hoveredCell) return;
+            const { x, z } = hoveredCell;
+            if (board[z][x] !== 0) return;
+            placePiece(x, z, currentPlayer);
+            if (checkWin(x, z, currentPlayer)) { endGame(currentPlayer); return; }
+            if (checkDraw()) { endGame(0); return; }
+            currentPlayer = currentPlayer === 1 ? 2 : 1;
+            updateTurnIndicator();
+            if (gameMode === 'ai' && currentPlayer === 2 && gameActive) setTimeout(makeAIMove, 500);
+        }
+        function placePiece(x, z, player) { board[z][x] = player; createPiece(x, z, player); }
+        function checkWin(x, z, player) {
+            const directions = [[1, 0], [0, 1], [1, 1], [1, -1]];
+            for (const [dx, dz] of directions) {
+                let count = 1;
+                for (let i = 1; i < 5; i++) {
+                    const nx = x + dx * i, nz = z + dz * i;
+                    if (nx < 0 || nx >= BOARD_SIZE || nz < 0 || nz >= BOARD_SIZE || board[nz][nx] !== player) break;
+                    count++;
+                }
+                for (let i = 1; i < 5; i++) {
+                    const nx = x - dx * i, nz = z - dz * i;
+                    if (nx < 0 || nx >= BOARD_SIZE || nz < 0 || nz >= BOARD_SIZE || board[nz][nx] !== player) break;
+                    count++;
+                }
+                if (count >= 5) return true;
+            }
+            return false;
+        }
+        function checkDraw() {
+            for (let z = 0; z < BOARD_SIZE; z++)
+                for (let x = 0; x < BOARD_SIZE; x++)
+                    if (board[z][x] === 0) return false;
+            return true;
+        }
+        function makeAIMove() {
+            if (!gameActive) return;
+            let move = aiDifficulty === 'easy' ? getEasyMove() :
+                       aiDifficulty === 'medium' ? getMediumMove() :
+                       aiDifficulty === 'hard' ? getHardMove() : getExpertMove();
+            if (move) {
+                placePiece(move.x, move.z, 2);
+                if (checkWin(move.x, move.z, 2)) { endGame(2); return; }
+                if (checkDraw()) { endGame(0); return; }
+                currentPlayer = 1;
+                updateTurnIndicator();
+            }
+        }
+        function getEasyMove() {
+            const available = [];
+            for (let z = 0; z < BOARD_SIZE; z++)
+                for (let x = 0; x < BOARD_SIZE; x++)
+                    if (board[z][x] === 0) available.push({ x, z });
+            return available.length ? available[Math.floor(Math.random() * available.length)] : null;
+        }
+        function getMediumMove() {
+            const winMove = findBestMove(2, 4);
+            if (winMove) return winMove;
+            const blockMove = findBestMove(1, 4);
+            if (blockMove) return blockMove;
+            const center = Math.floor(BOARD_SIZE / 2);
+            if (board[center][center] === 0) return { x: center, z: center };
+            return getEasyMove();
+        }
+        function getHardMove() {
+            let bestScore = -Infinity, bestMove = null;
+            for (let z = 0; z < BOARD_SIZE; z++)
+                for (let x = 0; x < BOARD_SIZE; x++)
+                    if (board[z][x] === 0) {
+                        const score = evaluatePosition(x, z, 2);
+                        if (score > bestScore) { bestScore = score; bestMove = { x, z }; }
+                    }
+            return bestMove || getEasyMove();
+        }
+        function getExpertMove() {
+            let bestScore = -Infinity, bestMove = null;
+            for (let z = 0; z < BOARD_SIZE; z++)
+                for (let x = 0; x < BOARD_SIZE; x++)
+                    if (board[z][x] === 0) {
+                        let score = evaluatePosition(x, z, 2) + getLearningBonus(x, z, 2) * aiLearning.adaptationLevel;
+                        if (score > bestScore) { bestScore = score; bestMove = { x, z }; }
+                    }
+            return bestMove || getEasyMove();
+        }
+        function findBestMove(player, consecutive) {
+            const directions = [[1, 0], [0, 1], [1, 1], [1, -1]];
+            for (let z = 0; z < BOARD_SIZE; z++)
+                for (let x = 0; x < BOARD_SIZE; x++)
+                    if (board[z][x] === 0)
+                        for (const [dx, dz] of directions) {
+                            let count = 0, emptyEnds = 0;
+                            for (let i = 1; i <= 5; i++) {
+                                const nx = x + dx * i, nz = z + dz * i;
+                                if (nx < 0 || nx >= BOARD_SIZE || nz < 0 || nz >= BOARD_SIZE) break;
+                                if (board[nz][nx] === player) count++;
+                                else if (board[nz][nx] === 0) { emptyEnds++; break; }
+                                else break;
+                            }
+                            for (let i = 1; i <= 5; i++) {
+                                const nx = x - dx * i, nz = z - dz * i;
+                                if (nx < 0 || nx >= BOARD_SIZE || nz < 0 || nz >= BOARD_SIZE) break;
+                                if (board[nz][nx] === player) count++;
+                                else if (board[nz][nx] === 0) { emptyEnds++; break; }
+                                else break;
+                            }
+                            if (count >= consecutive && emptyEnds >= 1) return { x, z };
+                        }
+            return null;
+        }
+        function evaluatePosition(x, z, player) {
+            let score = 0;
+            const opponent = player === 1 ? 2 : 1;
+            [[1, 0], [0, 1], [1, 1], [1, -1]].forEach(([dx, dz]) => {
+                score += evaluateLine(x, z, dx, dz, player) + evaluateLine(x, z, dx, dz, opponent) * 0.8;
+            });
+            const center = BOARD_SIZE / 2;
+            score += (10 - Math.abs(x - center) - Math.abs(z - center)) * 0.5;
+            return score;
+        }
+        function evaluateLine(x, z, dx, dz, player) {
+            let count = 0, blocked = 0;
+            for (let i = 1; i <= 4; i++) {
+                const nx = x + dx * i, nz = z + dz * i;
+                if (nx < 0 || nx >= BOARD_SIZE || nz < 0 || nz >= BOARD_SIZE) { blocked++; break; }
+                if (board[nz][nx] === player) count++;
+                else if (board[nz][nx] !== 0) { blocked++; break; }
+                else break;
+            }
+            for (let i = 1; i <= 4; i++) {
+                const nx = x - dx * i, nz = z - dz * i;
+                if (nx < 0 || nx >= BOARD_SIZE || nz < 0 || nz >= BOARD_SIZE) { blocked++; break; }
+                if (board[nz][nx] === player) count++;
+                else if (board[nz][nx] !== 0) { blocked++; break; }
+                else break;
+            }
+            if (count >= 4) return 10000;
+            if (count === 3 && blocked === 0) return 1000;
+            if (count === 3 && blocked === 1) return 100;
+            if (count === 2 && blocked === 0) return 100;
+            if (count === 2 && blocked === 1) return 10;
+            if (count === 1 && blocked === 0) return 10;
+            return count;
+        }
+        function getLearningBonus(x, z, player) {
+            let bonus = 0;
+            aiLearning.winPatterns.forEach(pattern => { if (matchesPattern(x, z, pattern)) bonus += 50; });
+            aiLearning.lossPatterns.forEach(pattern => { if (matchesPattern(x, z, pattern)) bonus -= 30; });
+            return bonus;
+        }
+        function matchesPattern(x, z, pattern) {
+            return pattern.some(p => Math.abs(x - p.x) <= 2 && Math.abs(z - p.z) <= 2);
+        }
+        function endGame(winner) {
+            gameActive = false;
+            let message = winner === 1 ? '🎉 Black Wins!' : winner === 2 ? '🏆 White Wins!' : "🤝 It's a Draw!";
+            if (gameMode === 'ai') {
+                if (winner === 1) { playerStats.wins++; recordPattern(1); }
+                else if (winner === 2) { playerStats.losses++; recordPattern(2); }
+                else playerStats.draws++;
+            }
+            showNotification(message);
+            updateStatsDisplay();
+            saveStats();
+            addToHistory(winner);
+        }
+        function recordPattern(winner) {
+            const pattern = [];
+            for (let z = 0; z < BOARD_SIZE; z++)
+                for (let x = 0; x < BOARD_SIZE; x++)
+                    if (board[z][x] !== 0) pattern.push({ x, z, player: board[z][x] });
+            if (winner === 2) {
+                aiLearning.winPatterns.push(pattern);
+                aiLearning.adaptationLevel = Math.min(aiLearning.adaptationLevel + 0.1, 1.0);
+            } else aiLearning.lossPatterns.push(pattern);
+            if (aiLearning.winPatterns.length > 50) aiLearning.winPatterns.shift();
+            if (aiLearning.lossPatterns.length > 50) aiLearning.lossPatterns.shift();
+        }
+        function updateTurnIndicator() {
+            const indicator = document.getElementById('turn-indicator');
+            indicator.textContent = currentPlayer === 1 ? "Black's Turn" : "White's Turn";
+            indicator.style.color = currentPlayer === 1 ? '#1a1a1a' : '#f0f0f0';
+        }
+        function updateStatsDisplay() {
+            const total = playerStats.wins + playerStats.losses + playerStats.draws;
+            const winRate = total > 0 ? Math.round((playerStats.wins / total) * 100) : 0;
+            document.getElementById('wins').textContent = playerStats.wins;
+            document.getElementById('losses').textContent = playerStats.losses;
+            document.getElementById('draws').textContent = playerStats.draws;
+            document.getElementById('win-rate').textContent = `${winRate}%`;
+        }
+        function addToHistory(winner) {
+            const result = winner === 1 ? 'Win' : winner === 2 ? 'Loss' : 'Draw';
+            playerStats.history.unshift({ result, timestamp: new Date().toLocaleString(), mode: gameMode, difficulty: aiDifficulty });
+            if (playerStats.history.length > 20) playerStats.history.pop();
+            renderHistory();
+        }
+        function renderHistory() {
+            const historyList = document.getElementById('history-list');
+            historyList.innerHTML = '';
+            playerStats.history.forEach(game => {
+                const li = document.createElement('li');
+                li.className = 'history-item';
+                li.innerHTML = `<span>${game.result} (${game.mode === 'ai' ? `vs ${game.difficulty}` : 'PvP'})</span><span style="color: #aaa; font-size: 0.8rem;">${game.timestamp}</span>`;
+                historyList.appendChild(li);
+            });
+        }
+        function loadStats() {
+            const saved = localStorage.getItem('gomokuStats');
+            if (saved) playerStats = JSON.parse(saved);
+            const savedLearning = localStorage.getItem('gomokuAILearning');
+            if (savedLearning) aiLearning = JSON.parse(savedLearning);
+        }
+        function saveStats() {
+            localStorage.setItem('gomokuStats', JSON.stringify(playerStats));
+            localStorage.setItem('gomokuAILearning', JSON.stringify(aiLearning));
+        }
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.classList.add('show');
+            setTimeout(() => notification.classList.remove('show'), 3000);
+        }
+        function setupEventListeners() {
+            document.getElementById('ai-mode-btn').addEventListener('click', () => {
+                gameMode = 'ai';
+                document.getElementById('ai-mode-btn').classList.add('active');
+                document.getElementById('pvp-mode-btn').classList.remove('active');
+                document.getElementById('difficulty-section').style.display = 'block';
+                document.getElementById('online-room').style.display = 'none';
+                initBoard();
+                showNotification('Switched to vs AI mode');
+            });
+            document.getElementById('pvp-mode-btn').addEventListener('click', () => {
+                gameMode = 'pvp';
+                document.getElementById('pvp-mode-btn').classList.add('active');
+                document.getElementById('ai-mode-btn').classList.remove('active');
+                document.getElementById('difficulty-section').style.display = 'none';
+                document.getElementById('online-room').style.display = 'block';
+                initBoard();
+                showNotification('Switched to Online PvP mode');
+            });
+            document.getElementById('difficulty').addEventListener('change', (e) => {
+                aiDifficulty = e.target.value;
+                showNotification(`AI difficulty set to ${aiDifficulty}`);
+            });
+            document.getElementById('reset-game-btn').addEventListener('click', () => {
+                initBoard();
+                showNotification('Game reset');
+            });
+            document.getElementById('create-room-btn').addEventListener('click', () => {
+                const roomId = 'ROOM-' + Math.random().toString(36).substr(2, 6).toUpperCase();
+                document.getElementById('room-id').value = roomId;
+                document.getElementById('room-status').textContent = `Room created: ${roomId}. Share this ID with your friend.`;
+                showNotification('Room created! Share the ID with your friend.');
+            });
+            document.getElementById('join-room-btn').addEventListener('click', () => {
+                const roomId = document.getElementById('room-id').value.trim();
+                if (roomId) {
+                    document.getElementById('room-status').textContent = `Joined room: ${roomId}. Waiting for opponent...`;
+                    showNotification(`Joined room: ${roomId}`);
+                } else showNotification('Please enter a room ID');
+            });
+        }
+        function animate() {
+            requestAnimationFrame(animate);
+            pieces.forEach(piece => {
+                if (piece.userData.isAnimating) {
+                    piece.userData.currentY = THREE.MathUtils.lerp(piece.userData.currentY, piece.userData.targetY, 0.1);
+                    piece.position.y = piece.userData.currentY;
+                    if (Math.abs(piece.userData.currentY - piece.userData.targetY) < 0.01) {
+                        piece.userData.isAnimating = false;
+                        piece.position.y = piece.userData.targetY;
+                    }
+                }
+            });
+            camera.position.x = Math.sin(Date.now() * 0.0005) * 0.5;
+            camera.lookAt(0, 0, 0);
+            renderer.render(scene, camera);
+        }
+        init();
+    </script>
+</body>
+</html>
+HTMLEOF
