@@ -9,9 +9,9 @@
       --bg-start: #0a2e1a;
       --bg-end: #0f1710;
       --panel-bg: rgba(20, 30, 20, 0.85);
-      --wood: #c49a6c;
-      --wood-dark: #8b5a2b;
-      --line: #3d2b1f;
+      --wood-light: #f5e9d5;
+      --wood-base: #e3cba8;
+      --line: #5c4033;
       --black-piece: #1a1a1a;
       --white-piece: #f2f2f2;
       --accent: #4ade80;
@@ -49,8 +49,7 @@
     canvas {
       display: block;
       border-radius: 12px;
-      background: linear-gradient(135deg, var(--wood) 0%, #b88656 100%);
-      box-shadow: inset 0 0 20px rgba(0,0,0,0.3), 0 4px 15px rgba(0,0,0,0.4);
+      box-shadow: inset 0 0 15px rgba(0,0,0,0.15), 0 4px 15px rgba(0,0,0,0.4);
       cursor: pointer;
     }
     .controls {
@@ -210,12 +209,17 @@
   // ================= 渲染引擎 =================
   function drawBoard() {
     ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-    // 木纹底色 (通过渐变模拟)
-    ctx.fillStyle = 'linear-gradient(135deg, #c49a6c 0%, #b88656 100%)';
-    ctx.fillRect(0,0,CANVAS_SIZE,CANVAS_SIZE);
+    
+    // 明亮原木色渐变 (Canvas 原生渐变对象)
+    const bgGrad = ctx.createLinearGradient(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+    bgGrad.addColorStop(0, '#f5e9d5'); // 浅亮枫木色
+    bgGrad.addColorStop(1, '#e3cba8'); // 暖原木底色
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
-    ctx.strokeStyle = '#3d2b1f';
-    ctx.lineWidth = 1;
+    // 网格线 (加深对比度)
+    ctx.strokeStyle = '#5c4033';
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
     for (let i = 0; i < SIZE; i++) {
       const pos = PADDING + i * CELL;
@@ -226,10 +230,10 @@
 
     // 星位
     const stars = [3,7,11];
-    ctx.fillStyle = '#2a1c10';
+    ctx.fillStyle = '#3d2b1f';
     for (let x of stars) for (let y of stars) {
       ctx.beginPath();
-      ctx.arc(PADDING + x*CELL, PADDING + y*CELL, 3, 0, Math.PI*2);
+      ctx.arc(PADDING + x*CELL, PADDING + y*CELL, 4, 0, Math.PI*2);
       ctx.fill();
     }
 
@@ -242,10 +246,10 @@
 
     // 最后落子标记
     if (lastMove) {
-      ctx.strokeStyle = 'rgba(255,50,50,0.8)';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(230,50,50,0.85)';
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
-      ctx.arc(PADDING + lastMove.x*CELL, PADDING + lastMove.y*CELL, 4, 0, Math.PI*2);
+      ctx.arc(PADDING + lastMove.x*CELL, PADDING + lastMove.y*CELL, 5, 0, Math.PI*2);
       ctx.stroke();
     }
   }
@@ -255,22 +259,20 @@
     const cy = PADDING + y * CELL;
     const r = CELL * 0.42;
 
-    // 3D光泽渐变
     const grad = ctx.createRadialGradient(cx - r*0.3, cy - r*0.3, r*0.1, cx, cy, r);
-    if (player === 1) { // 黑
-      grad.addColorStop(0, '#555');
+    if (player === 1) {
+      grad.addColorStop(0, '#666');
       grad.addColorStop(0.4, '#222');
       grad.addColorStop(1, '#0a0a0a');
-    } else { // 白
+    } else {
       grad.addColorStop(0, '#ffffff');
-      grad.addColorStop(0.5, '#e6e6e6');
+      grad.addColorStop(0.5, '#eaeaea');
       grad.addColorStop(1, '#b0b0b0');
     }
 
-    // 阴影
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.6)';
-    ctx.shadowBlur = 6;
+    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+    ctx.shadowBlur = 5;
     ctx.shadowOffsetX = 2;
     ctx.shadowOffsetY = 3;
     ctx.fillStyle = grad;
@@ -279,10 +281,10 @@
     ctx.fill();
     ctx.restore();
 
-    // 高光
-    ctx.fillStyle = 'rgba(255,255,255,0.65)';
+    // 高光点
+    ctx.fillStyle = player === 1 ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.9)';
     ctx.beginPath();
-    ctx.ellipse(cx - r*0.3, cy - r*0.35, r*0.25, r*0.12, Math.PI/4, 0, Math.PI*2);
+    ctx.ellipse(cx - r*0.25, cy - r*0.3, r*0.2, r*0.1, Math.PI/4, 0, Math.PI*2);
     ctx.fill();
   }
 
@@ -390,7 +392,6 @@
     for (let x = 0; x < SIZE; x++) {
       for (let y = 0; y < SIZE; y++) {
         if (board[x][y]) continue;
-        // 启发式：只评估周围有子的点，提升性能
         let hasNeighbor = false;
         for (let dx=-1; dx<=1; dx++) for (let dy=-1; dy<=1; dy++) {
           if (dx===0 && dy===0) continue;
@@ -399,9 +400,9 @@
         }
         if (!hasNeighbor) continue;
 
-        const atk = getScore(x, y, 2); // AI进攻分
-        const def = getScore(x, y, 1); // 防守分
-        const score = atk * 1.1 + def; // 略微偏向进攻
+        const atk = getScore(x, y, 2);
+        const def = getScore(x, y, 1);
+        const score = atk * 1.1 + def;
         if (score > bestScore) {
           bestScore = score;
           bestMoves = [{x, y}];
@@ -410,7 +411,7 @@
         }
       }
     }
-    if (bestMoves.length === 0) return { x: 7, y: 7 }; // 默认中点
+    if (bestMoves.length === 0) return { x: 7, y: 7 };
     return bestMoves[Math.floor(Math.random() * bestMoves.length)];
   }
 
@@ -440,7 +441,6 @@
 
   // 初始化
   resetGame();
-  console.log('🟢 五子棋已加载。支持本地双人/AI对战。数据已持久化至 localStorage。');
 </script>
 </body>
 </html>
